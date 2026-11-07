@@ -2,6 +2,7 @@ import logging
 import os
 import xml.etree.ElementTree as ET
 from ipaddress import IPv4Interface
+from xml.sax.saxutils import escape
 
 from app.backends.planning import plan_interface as generic_plan_interface
 
@@ -113,7 +114,7 @@ def get_interface_state(router, interface_name, netconf_get_config=None):
         }
     except PermissionError:
         return {"status": "error", "result": "authentication_failed"}
-    except ConnectionError:
+    except (ConnectionError, TimeoutError):
         return {"status": "error", "result": "connection_failed"}
     except Exception:
         logger.exception("NETCONF backend failed")
@@ -130,16 +131,20 @@ def plan_interface(router, desired_interface, netconf_get_config=None):
 
 def apply_interface(router, desired_interface, netconf_edit_config=None):
     """Apply complete desired interface state using NETCONF."""
-    number = int(desired_interface["name"].replace("Loopback", ""))
-    ipv4 = IPv4Interface(desired_interface["ipv4"])
-    shutdown_tag = "<shutdown/>" if desired_interface.get("admin_state") == "down" else ""
+    try:
+        number = int(desired_interface["name"].replace("Loopback", ""))
+        ipv4 = IPv4Interface(desired_interface["ipv4"])
+        description = escape(str(desired_interface["description"]))
+        shutdown_tag = (
+            "<shutdown/>" if desired_interface.get("admin_state") == "down" else ""
+        )
 
-    config_xml = f"""<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+        config_xml = f"""<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
     <interface>
       <Loopback nc:operation="replace">
         <name>{number}</name>
-        <description>{desired_interface["description"]}</description>
+        <description>{description}</description>
         <ip>
           <address>
             <primary>
@@ -154,14 +159,13 @@ def apply_interface(router, desired_interface, netconf_edit_config=None):
   </native>
 </config>"""
 
-    try:
         if netconf_edit_config is None:
             netconf_edit_config = _netconf_edit_config
         netconf_edit_config(router, config_xml)
         return {"status": "ok", "result": "applied"}
     except PermissionError:
         return {"status": "error", "result": "authentication_failed"}
-    except ConnectionError:
+    except (ConnectionError, TimeoutError):
         return {"status": "error", "result": "connection_failed"}
     except Exception:
         logger.exception("NETCONF backend failed")

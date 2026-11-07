@@ -58,17 +58,17 @@ def _run_playbook(variables):
 
 def apply_interface(router, desired_interface, run_playbook=None):
     """Apply complete desired interface state using Ansible."""
-    ipv4 = IPv4Interface(desired_interface["ipv4"])
-    variables = {
-        "router": router,
-        "interface_name": desired_interface["name"],
-        "description": desired_interface["description"],
-        "ipv4_address": str(ipv4.ip),
-        "netmask": str(ipv4.network.netmask),
-        "shutdown": desired_interface.get("admin_state") == "down",
-    }
-
     try:
+        ipv4 = IPv4Interface(desired_interface["ipv4"])
+        variables = {
+            "router": router,
+            "interface_name": desired_interface["name"],
+            "description": desired_interface["description"],
+            "ipv4_address": str(ipv4.ip),
+            "netmask": str(ipv4.network.netmask),
+            "shutdown": desired_interface.get("admin_state") == "down",
+        }
+
         if run_playbook is None:
             run_playbook = _run_playbook
         run_playbook(variables)
@@ -76,7 +76,7 @@ def apply_interface(router, desired_interface, run_playbook=None):
         return {"status": "ok", "result": "applied"}
     except PermissionError:
         return {"status": "error", "result": "authentication_failed"}
-    except ConnectionError:
+    except (ConnectionError, TimeoutError, subprocess.TimeoutExpired):
         return {"status": "error", "result": "connection_failed"}
     except Exception:
         logger.exception("Ansible backend failed")

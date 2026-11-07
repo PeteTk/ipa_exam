@@ -50,7 +50,11 @@ class WebexEventHandler:
             return res
 
         if len(files) == 0:
-            res = self.processor(mentioned_people, None, self.bot_person_id)
+            try:
+                res = self.processor(mentioned_people, None, self.bot_person_id)
+            except Exception:
+                logger.exception("Request processing failed")
+                res = {"status": "error", "result": "backend_failed"}
             self.client.send_message(room_id, json.dumps(res))
             return res
 
@@ -62,6 +66,9 @@ class WebexEventHandler:
 
             try:
                 res = self.processor(mentioned_people, file_path, self.bot_person_id)
+            except Exception:
+                logger.exception("Request processing failed")
+                res = {"status": "error", "result": "backend_failed"}
             finally:
                 if file_path.exists():
                     file_path.unlink()

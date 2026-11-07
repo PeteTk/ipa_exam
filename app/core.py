@@ -32,23 +32,23 @@ def validate_request(data):
         return {"status": "error", "result": "invalid_version"}
 
     # 2. Router validation
-    if "router" not in data:
+    router = data.get("router")
+    if not router:
         return {"status": "error", "result": "missing_router"}
-    router = data["router"]
     if not isinstance(router, str) or router not in ALLOWED_ROUTERS:
         return {"status": "error", "result": "invalid_router"}
 
     # 3. Method validation
-    if "method" not in data:
+    method = data.get("method")
+    if not method:
         return {"status": "error", "result": "missing_method"}
-    method = data["method"]
     if not isinstance(method, str) or method not in ALLOWED_METHODS:
         return {"status": "error", "result": "invalid_method"}
 
     # 4. Action validation
-    if "action" not in data:
+    action = data.get("action")
+    if not action:
         return {"status": "error", "result": "missing_action"}
-    action = data["action"]
     if not isinstance(action, str) or action not in ALLOWED_METHODS[method]:
         return {"status": "error", "result": "invalid_action"}
 
@@ -61,18 +61,22 @@ def validate_request(data):
         return {"status": "error", "result": "missing_interface"}
 
     interface = desired["interface"]
-    if "name" not in interface or not interface["name"]:
+    name = interface.get("name")
+    if not isinstance(name, str) or not name.strip():
         return {"status": "error", "result": "missing_interface_name"}
 
     # 6. Action-specific validation for 'plan' and 'apply'
     if action in ("plan", "apply"):
-        if "ipv4" not in interface:
+        ipv4 = interface.get("ipv4")
+        if not isinstance(ipv4, str) or not ipv4.strip():
             return {"status": "error", "result": "missing_ipv4"}
-        if "description" not in interface:
+        description = interface.get("description")
+        if not isinstance(description, str) or not description.strip():
             return {"status": "error", "result": "missing_description"}
-        if "admin_state" not in interface:
+        admin_state = interface.get("admin_state")
+        if admin_state is None or admin_state == "":
             return {"status": "error", "result": "missing_admin_state"}
-        if interface["admin_state"] not in ("up", "down"):
+        if admin_state not in ("up", "down"):
             return {"status": "error", "result": "invalid_admin_state"}
 
     return {"status": "ok", "result": "accepted"}

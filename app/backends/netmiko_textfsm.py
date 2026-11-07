@@ -84,6 +84,17 @@ def _netmiko_delete(router, interface_name):
         conn.disconnect()
 
 
+def _normalize_name(name):
+    """Expand IOS abbreviations: Lo123 -> Loopback123 (full names unchanged)."""
+    name = str(name or "").strip()
+    lower = name.lower()
+    if lower.startswith("loopback"):
+        return "Loopback" + name[8:]
+    if lower.startswith("lo") and name[2:].isdigit():
+        return "Loopback" + name[2:]
+    return name
+
+
 def get_interface_state(router, interface_name, netmiko_get=None):
     """Return normalized interface status using Netmiko + TextFSM."""
     try:
@@ -94,9 +105,23 @@ def get_interface_state(router, interface_name, netmiko_get=None):
         if not ip_info:
             return {"status": "ok", "result": "not_found", "interface": None}
 
-        info = ip_info[0]
+        target = _normalize_name(interface_name)
+        info = None
+        for item in ip_info:
+            if not isinstance(item, dict):
+                continue
+            item_name = item.get("interface")
+            if item_name is None or _normalize_name(item_name) == target:
+                info = item
+                break
+        if info is None:
+            return {"status": "ok", "result": "not_found", "interface": None}
         link_status = info.get("link_status", "").lower()
-        admin_state = "down" if "administratively down" in link_status else "up"
+        admin_state = (
+            "down"
+            if "administratively down" in link_status or "admin down" in link_status
+            else "up"
+        )
 
         ip_addr = info.get("ip_address", [None])[0]
         prefix_len = info.get("prefix_length", [None])[0]
@@ -104,11 +129,12 @@ def get_interface_state(router, interface_name, netmiko_get=None):
 
         desc = None
         for d in descriptions:
-            port = d.get("port", "")
-            # แปลงชื่อย่อ Lo123 ให้กลายเป็น Loopback123
-            normalized_port = port.replace("Lo", "Loopback") if port.startswith("Lo") else port
-            if normalized_port == interface_name:
-                desc = d.get("description")
+            if not isinstance(d, dict):
+                continue
+            port = d.get("port") or d.get("interface") or ""
+            # แปลงชื่อย่อ Lo123 ให้กลายเป็น Loopback123 (ชื่อเต็มคงเดิม)
+            if _normalize_name(port) == target:
+                desc = d.get("description") or None
                 break
 
         return {
@@ -123,7 +149,7 @@ def get_interface_state(router, interface_name, netmiko_get=None):
         }
     except PermissionError:
         return {"status": "error", "result": "authentication_failed"}
-    except ConnectionError:
+    except (ConnectionError, TimeoutError):
         return {"status": "error", "result": "connection_failed"}
     except Exception:
         logger.exception("Netmiko backend failed")
@@ -141,7 +167,7 @@ def delete_interface(router, interface_name, netmiko_delete=None):
         return {"status": "ok", "result": "deleted"}
     except PermissionError:
         return {"status": "error", "result": "authentication_failed"}
-    except ConnectionError:
+    except (ConnectionError, TimeoutError):
         return {"status": "error", "result": "connection_failed"}
     except Exception:
         logger.exception("Netmiko backend failed")

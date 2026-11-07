@@ -90,28 +90,28 @@ def plan_interface(router, desired_interface, http_get=None):
 
 def apply_interface(router, desired_interface, http_put=None):
     """Apply complete desired interface state using RESTCONF."""
-    number = int(desired_interface["name"].replace("Loopback", ""))
-    url = f"https://{router}/restconf/data/Cisco-IOS-XE-native:native/interface/Loopback={number}"
-
-    ipv4 = IPv4Interface(desired_interface["ipv4"])
-    payload_loopback = {
-        "name": number,
-        "description": desired_interface["description"],
-        "ip": {
-            "address": {
-                "primary": {
-                    "address": str(ipv4.ip),
-                    "mask": str(ipv4.network.netmask),
-                }
-            }
-        },
-    }
-    if desired_interface.get("admin_state") == "down":
-        payload_loopback["shutdown"] = [None]
-
-    payload = {"Cisco-IOS-XE-native:Loopback": payload_loopback}
-
     try:
+        number = int(desired_interface["name"].replace("Loopback", ""))
+        url = f"https://{router}/restconf/data/Cisco-IOS-XE-native:native/interface/Loopback={number}"
+
+        ipv4 = IPv4Interface(desired_interface["ipv4"])
+        payload_loopback = {
+            "name": number,
+            "description": desired_interface["description"],
+            "ip": {
+                "address": {
+                    "primary": {
+                        "address": str(ipv4.ip),
+                        "mask": str(ipv4.network.netmask),
+                    }
+                }
+            },
+        }
+        if desired_interface.get("admin_state") == "down":
+            payload_loopback["shutdown"] = [None]
+
+        payload = {"Cisco-IOS-XE-native:Loopback": payload_loopback}
+
         if http_put is not None:
             resp = http_put(url, json=payload)
         else:
