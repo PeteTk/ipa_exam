@@ -34,21 +34,22 @@ def validate_request(data):
     # 2. Router validation
     if "router" not in data:
         return {"status": "error", "result": "missing_router"}
-    if data["router"] not in ALLOWED_ROUTERS:
+    router = data["router"]
+    if not isinstance(router, str) or router not in ALLOWED_ROUTERS:
         return {"status": "error", "result": "invalid_router"}
 
     # 3. Method validation
     if "method" not in data:
         return {"status": "error", "result": "missing_method"}
     method = data["method"]
-    if method not in ALLOWED_METHODS:
+    if not isinstance(method, str) or method not in ALLOWED_METHODS:
         return {"status": "error", "result": "invalid_method"}
 
     # 4. Action validation
     if "action" not in data:
         return {"status": "error", "result": "missing_action"}
     action = data["action"]
-    if action not in ALLOWED_METHODS[method]:
+    if not isinstance(action, str) or action not in ALLOWED_METHODS[method]:
         return {"status": "error", "result": "invalid_action"}
 
     # 5. Desired interface structure validation

@@ -25,9 +25,15 @@ def process_request(mentioned_people, attachment_path, bot_person_id):
         return {"status": "error", "result": "invalid_yaml"}
 
     # 3. Validate request schema
-    validation_res = validate_request(data)
+    try:
+        validation_res = validate_request(data)
+    except Exception:
+        return {"status": "error", "result": "invalid_yaml"}
     if validation_res.get("status") == "error":
         return validation_res
 
-    # 4. Dispatch to backend
-    return dispatch_request(data)
+    # 4. Dispatch to backend (always reply, even on unexpected failure)
+    try:
+        return dispatch_request(data)
+    except Exception:
+        return {"status": "error", "result": "backend_failed"}
